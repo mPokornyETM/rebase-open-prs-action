@@ -1,0 +1,63 @@
+# Reusable workflow for rebasing open PRs
+# Usage:
+#   jobs:
+#     rebase-prs:
+#       uses: mPokornyETM/rebase-open-prs-action/.github/workflows/rebase-open-prs.yml@v1
+#       secrets:
+#         GH_PAT: ${{ secrets.GH_TOKEN_PAT }}
+
+name: Rebase Open PRs
+
+on:
+  workflow_call:
+    inputs:
+      skip-drafts:
+        description: 'Skip draft PRs'
+        required: false
+        type: boolean
+        default: true
+      skip-dependabot-rebase:
+        description: 'Use @dependabot rebase comment instead of direct rebase'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      GH_PAT:
+        description: 'GitHub PAT with repo scope for rebasing PRs'
+        required: true
+
+jobs:
+  rebase-open-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebase all open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ github.repository }}
+          SKIP_DRAFTS: ${{ inputs.skip-drafts }}
+          SKIP_DEPENDABOT_REBASE: ${{ inputs.skip-dependabot-rebase }}
+        run: |
+          echo "🔄 Rebasing open PRs in $GH_REPO..."
+          
+          # Build jq filter based on options
+          JQ_FILTER='.[]'
+          if [ "$SKIP_DRAFTS" = "true" ]; then
+            JQ_FILTER="$JQ_FILTER | select(.isDraft == false)"
+          fi
+          JQ_FILTER="$JQ_FILTER | \"\(.number) \(.author.login)\""
+          
+          gh pr list --state open --json number,author,isDraft --jq "$JQ_FILTER" | while read pr author; do
+            if [ -z "$pr" ]; then
+              continue
+            fi
+            
+            if [ "$author" = "dependabot[bot]" ] && [ "$SKIP_DEPENDABOT_REBASE" = "true" ]; then
+              echo "📦 Requesting rebase for Dependabot PR #$pr"
+              gh pr comment "$pr" --body "@dependabot rebase" || echo "⚠️ Failed to comment on PR #$pr"
+            else
+              echo "🔀 Updating branch for PR #$pr (author: $author)"
+              gh pr update-branch --rebase "$pr" || echo "⚠️ Failed to rebase PR #$pr (may have conflicts)"
+            fi
+          done
+          
+          echo "✅ Done rebasing open PRs"
