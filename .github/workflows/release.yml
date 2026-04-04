@@ -57,10 +57,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Wait for tag to propagate
+          sleep 5
           gh release create ${{ steps.tag.outputs.tag }} \
             --title "${{ steps.tag.outputs.tag }}" \
-            --notes-file release_notes.md \
-            --verify-tag
+            --notes-file release_notes.md
 
       - name: Update major version tag
         env:
