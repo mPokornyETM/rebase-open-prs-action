@@ -1,0 +1,57 @@
+name: 'Rebase Open PRs'
+description: 'Automatically rebase all open PRs when the default branch is updated'
+author: 'mPokornyETM'
+
+branding:
+  icon: 'git-pull-request'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token with permissions to update PRs'
+    required: true
+    default: ${{ github.token }}
+  skip-drafts:
+    description: 'Skip draft PRs (true/false)'
+    required: false
+    default: 'true'
+  skip-dependabot-rebase:
+    description: 'Use @dependabot rebase comment instead of direct rebase for Dependabot PRs'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Rebase all open PRs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        SKIP_DRAFTS: ${{ inputs.skip-drafts }}
+        SKIP_DEPENDABOT_REBASE: ${{ inputs.skip-dependabot-rebase }}
+      run: |
+        echo "🔄 Rebasing open PRs in $GH_REPO..."
+        
+        # Build jq filter based on options
+        JQ_FILTER='.[]'
+        if [ "$SKIP_DRAFTS" = "true" ]; then
+          JQ_FILTER="$JQ_FILTER | select(.isDraft == false)"
+        fi
+        JQ_FILTER="$JQ_FILTER | \"\(.number) \(.author.login)\""
+        
+        gh pr list --state open --json number,author,isDraft --jq "$JQ_FILTER" | while read pr author; do
+          if [ -z "$pr" ]; then
+            continue
+          fi
+          
+          if [ "$author" = "dependabot[bot]" ] && [ "$SKIP_DEPENDABOT_REBASE" = "true" ]; then
+            echo "📦 Requesting rebase for Dependabot PR #$pr"
+            gh pr comment "$pr" --body "@dependabot rebase" || echo "⚠️ Failed to comment on PR #$pr"
+          else
+            echo "🔀 Updating branch for PR #$pr (author: $author)"
+            gh pr update-branch --rebase "$pr" || echo "⚠️ Failed to rebase PR #$pr (may have conflicts)"
+          fi
+        done
+        
+        echo "✅ Done rebasing open PRs"
