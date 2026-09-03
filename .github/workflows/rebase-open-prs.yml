@@ -51,7 +51,7 @@ jobs:
               continue
             fi
             
-            if [ "$author" = "dependabot[bot]" ] && [ "$SKIP_DEPENDABOT_REBASE" = "true" ]; then
+            if [[ ( "$author" = "dependabot[bot]" || "$author" = "app/dependabot" ) && "$SKIP_DEPENDABOT_REBASE" = "true" ]]; then
               echo "📦 Requesting rebase for Dependabot PR #$pr"
               gh pr comment "$pr" --body "@dependabot rebase" || echo "⚠️ Failed to comment on PR #$pr"
             else
