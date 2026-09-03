@@ -96,6 +96,24 @@ permissions:
 - **Faster CI feedback**: PRs are always tested against the latest code
 - **Less manual work**: No need to manually rebase PRs
 
+## Publishing a release
+
+To publish a new release the recommended workflow is to create a version tag locally, push it, and make a GitHub release. Example commands:
+
+```bash
+git checkout main
+git pull
+
+# create an annotated tag for the latest commit
+git tag -a v1.2.3 -m "Release v1.2.3"
+
+# push a single tag to origin
+git push origin v1.2.3
+```
+
+The release pipeline will do the realse for you.
+
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
